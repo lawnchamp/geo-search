@@ -39,7 +39,7 @@ function Input({ value, onChange, label, className = '', ...rest }) {
   );
 }
 
-function NewLeagueBuilder({ refreshLeagueList }) {
+function NewLeagueCreator({ refreshLeagueList }) {
   const [name, setName] = useState<string>('');
   const [price, setPrice] = useState<number | null>(null);
   const [latLongInput, setLatLongInput] = useState<string>('');
@@ -222,6 +222,11 @@ function App() {
   const [leagues, setLeagues] = useState<Array<League>>([]);
   const [leagueIdsInSearchRadius, setLeagueIdsInSearchRadius] = useState<Array<string>>([]);
 
+  const [leaguesInPriceRange, totalCost]: [Array<League>, number] = useMemo(
+    findLeaguesInPriceRange,
+    [leagueIdsInSearchRadius],
+  );
+
   useEffect(() => {
     if (refreshLeagueList) {
       GeoFirestore.collection('leagues')
@@ -238,22 +243,51 @@ function App() {
     }
   }, [refreshLeagueList]);
 
+  function findLeaguesInPriceRange(): [Array<League>, number] {
+    if (leagues.length === 0) return [[], 0];
+
+    const maxPrice = 4500;
+    let moneySpent = 0;
+
+    let leaguesInPriceRange: Array<League> = [];
+
+    const sortedLeaguesInSearchRadius: Array<League> = leagues
+      .filter((league) => leagueIdsInSearchRadius.includes(league.id))
+      .sort((a, b) => a.price - b.price);
+
+    for (const league of sortedLeaguesInSearchRadius) {
+      if (moneySpent + league.price >= maxPrice) break;
+
+      moneySpent += league.price;
+      leaguesInPriceRange.push(league);
+    }
+    console.log(leaguesInPriceRange);
+    return [leaguesInPriceRange, moneySpent];
+  }
+
   return (
     <div className="App">
-      <h1 className="bg-gray-700 p-4 text-3xl font-bold text-white">League Manager</h1>
-      <div className="flex-wrap sm:flex">
-        <div className="bg-white rounded-lg shadow-md m-3">
-          <NewLeagueBuilder refreshLeagueList={() => setRefreshLeagueList(true)} />
-          <LeagueList title="All Leagues" leagues={leagues} />
+      <h1 className="px-8 py-4 text-3xl font-bold text-white bg-gray-800">League Manager</h1>
+      <div className="max-w-6xl mx-auto">
+        <div className="flex-wrap justify-center sm:flex">
+          <div className="m-3 bg-white rounded-lg shadow-md">
+            <NewLeagueCreator refreshLeagueList={() => setRefreshLeagueList(true)} />
+            <LeagueList title="All Leagues" leagues={leagues} />
+          </div>
+          <div className="m-3 bg-white rounded-lg shadow-md">
+            <SearchForLeagues setLeagueIdsInSearchRadius={setLeagueIdsInSearchRadius} />
+            <LeagueList title="Search Results" leagues={leaguesInPriceRange} />
+            {leaguesInPriceRange.length > 0 && (
+              <div className="w-full underline p-6 bg-green-100 text-sm font-bold tracking-wide text-right text-indigo-600 uppercase">
+                Total cost:
+                <span className="text-lg font-bold text-green-600">
+                  {' '}
+                  ${Intl.NumberFormat().format(totalCost)}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
-        <div className="bg-white rounded-lg shadow-md m-3">
-          <SearchForLeagues setLeagueIdsInSearchRadius={setLeagueIdsInSearchRadius} />
-          <LeagueList
-            title="Search Results"
-            leagues={leagues.filter(({ id }) => leagueIdsInSearchRadius.includes(id))}
-          />
-        </div>
-        {/* <pre style={{ textAlign: 'left' }}>{JSON.stringify(leagues, null, 2)}</pre> */}
       </div>
     </div>
   );
