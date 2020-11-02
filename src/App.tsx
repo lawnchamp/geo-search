@@ -115,7 +115,7 @@ function NewLeagueBuilder({ refreshLeagueList }) {
   );
 }
 
-function SearchForLeagues({ setFilteredLeagueIds }) {
+function SearchForLeagues({ setLeagueIdsInSearchRadius }) {
   const [price, setPrice] = useState<number | null>(null);
   const [latLongInput, setLatLongInput] = useState<string>('');
   const [searchRadius, setSearchRadius] = useState<number | null>(null);
@@ -136,7 +136,6 @@ function SearchForLeagues({ setFilteredLeagueIds }) {
   function search() {
     if (!searchRadius || !latLongInput) return;
     const [latitude, longitude] = parsedLatitudeLongitude();
-    debugger;
 
     const query = GeoFirestore.collection('leagues').near({
       center: new firebase.firestore.GeoPoint(latitude, longitude),
@@ -144,7 +143,7 @@ function SearchForLeagues({ setFilteredLeagueIds }) {
     });
 
     query.get().then((value) => {
-      setFilteredLeagueIds(value.docs.map(({ id }) => id));
+      setLeagueIdsInSearchRadius(value.docs.map(({ id }) => id));
     });
     setSearchRadius(null);
     setPrice(null);
@@ -221,7 +220,7 @@ function LeagueList({ leagues, title }: { leagues: Array<League>; title: string 
 function App() {
   const [refreshLeagueList, setRefreshLeagueList] = useState<boolean>(true);
   const [leagues, setLeagues] = useState<Array<League>>([]);
-  const [filteredLeagueIds, setFilteredLeagueIds] = useState<Array<string>>([]);
+  const [leagueIdsInSearchRadius, setLeagueIdsInSearchRadius] = useState<Array<string>>([]);
 
   useEffect(() => {
     if (refreshLeagueList) {
@@ -248,10 +247,10 @@ function App() {
           <LeagueList title="All Leagues" leagues={leagues} />
         </div>
         <div className="bg-white rounded-lg shadow-md m-3">
-          <SearchForLeagues setFilteredLeagueIds={setFilteredLeagueIds} />
+          <SearchForLeagues setLeagueIdsInSearchRadius={setLeagueIdsInSearchRadius} />
           <LeagueList
             title="Search Results"
-            leagues={leagues.filter(({ id }) => filteredLeagueIds.includes(id))}
+            leagues={leagues.filter(({ id }) => leagueIdsInSearchRadius.includes(id))}
           />
         </div>
         {/* <pre style={{ textAlign: 'left' }}>{JSON.stringify(leagues, null, 2)}</pre> */}
