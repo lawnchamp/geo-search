@@ -1,15 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import firebase from 'firebase/app';
 import './App.css';
-import { GeoFirestore, firestore } from './index';
-
-// import computeDestinationPoint from 'geolib/es/computeDestinationPoint';
-
-console.log('initializing app');
-
-function milesToMeters(miles: number) {
-  return miles * 1609.34;
-}
+import { GeoFirestore } from './index';
 
 interface League {
   id: string;
@@ -28,127 +20,233 @@ interface League {
   };
 }
 
-function App() {
-  const [leagues, setLeagues] = useState<Array<League>>([]);
+function Input({ value, onChange, label, className = '', ...rest }) {
+  return (
+    <div className={className}>
+      <label htmlFor={label} className="block text-sm font-medium leading-5 text-gray-700">
+        {label}
+      </label>
+      <div className="relative mt-1 rounded-md shadow-sm">
+        <input
+          {...rest}
+          id={label}
+          value={value}
+          onChange={onChange}
+          className="block w-full pr-12 form-input pl-7 sm:text-sm sm:leading-5"
+        />
+      </div>
+    </div>
+  );
+}
 
+function NewLeagueBuilder({ refreshLeagueList }) {
   const [name, setName] = useState<string>('');
   const [price, setPrice] = useState<number | null>(null);
   const [latLongInput, setLatLongInput] = useState<string>('');
 
-  const [searchLatLong, setSearchLatLong] = useState<string>('');
-  const [searchRadius, setSearchRadius] = useState<number | null>(null);
-
-  const geocollection = useMemo(() => GeoFirestore.collection('leagues'), []);
-  console.log('Rendering app!');
-
-  useEffect(() => {
-    geocollection.get().then((querySnapshot) => {
-      const fetchedLeagues: Array<League> = [];
-      querySnapshot.forEach((doc) => {
-        const { name, price, coordinates } = doc.data();
-        fetchedLeagues.push({ id: doc.id, name, price, coordinates });
-      });
-      setLeagues(fetchedLeagues);
-    });
-  }, []);
+  const validLatLongPair = useMemo(
+    () =>
+      latLongInput
+        .split(',')
+        .map(parseFloat)
+        .every((coordinate) => coordinate <= 90 || coordinate <= -90),
+    [latLongInput],
+  );
 
   function submitCoordinates() {
     const [latitude, longitude] = latLongInput.split(',').map(parseFloat);
-    geocollection.add({
-      name,
-      price,
-      coordinates: new firebase.firestore.GeoPoint(latitude, longitude),
-    });
+    GeoFirestore.collection('leagues')
+      .add({
+        name,
+        price,
+        coordinates: new firebase.firestore.GeoPoint(latitude, longitude),
+      })
+      .then(() => {
+        setName('');
+        setPrice(0);
+        setLatLongInput('');
 
-    setName('');
-    setPrice(null);
-    setLatLongInput('');
+        refreshLeagueList();
+      });
+  }
+
+  return (
+    <div>
+      <div className="p-6">
+        <h2 className="pb-4 text-lg font-semibold">Add New League</h2>
+        <div className="flex">
+          <Input
+            type="text"
+            className="pr-4"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            label="Name"
+          />
+          <Input
+            type="number"
+            value={price || ''}
+            onChange={(event) => setPrice(event.target.value)}
+            label="Price"
+            step="100"
+          />
+        </div>
+        <Input
+          type="text"
+          value={latLongInput}
+          onChange={(event) => setLatLongInput(event.target.value)}
+          placeholder="latitude, longitude"
+          label="Latitude, Longitude"
+          className="pt-4"
+        />
+      </div>
+      <div className="px-4 py-3 overflow-hidden text-right bg-indigo-100">
+        <span className="inline-flex rounded-md shadow-sm">
+          <button
+            type="submit"
+            onClick={submitCoordinates}
+            className="px-4 py-2 text-sm font-medium leading-5 text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-500 focus:outline-none focus:bg-indigo-500"
+            disabled={!name || !price || !validLatLongPair}
+          >
+            Add
+          </button>
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function SearchForLeagues({ setFilteredLeagueIds }) {
+  const [price, setPrice] = useState<number | null>(null);
+  const [latLongInput, setLatLongInput] = useState<string>('');
+  const [searchRadius, setSearchRadius] = useState<number | null>(null);
+
+  const validLatLongPair = useMemo(
+    () =>
+      latLongInput
+        .split(',')
+        .map(parseFloat)
+        .every((coordinate) => coordinate <= 90 || coordinate <= -90),
+    [latLongInput],
+  );
+
+  function parsedLatitudeLongitude() {
+    return latLongInput.split(',').map(parseFloat);
   }
 
   function search() {
-    if (!searchRadius || !searchLatLong) return;
-    const [latitude, longitude] = searchLatLong.split(',').map(parseFloat);
+    if (!searchRadius || !latLongInput) return;
+    const [latitude, longitude] = parsedLatitudeLongitude();
+    debugger;
 
-    const query = geocollection.near({
+    const query = GeoFirestore.collection('leagues').near({
       center: new firebase.firestore.GeoPoint(latitude, longitude),
       radius: searchRadius,
     });
 
     query.get().then((value) => {
-      console.log(value.docs);
+      setFilteredLeagueIds(value.docs.map(({ id }) => id));
     });
     setSearchRadius(null);
+    setPrice(null);
   }
 
   return (
-    <div className="p-6 bg-gray-100 App">
-      <h1 className="pb-6 text-2xl font-bold text-indigo-500">League Manager</h1>
-      <link href="https://unpkg.com/tailwindcss@^1.0/dist/tailwind.min.css" rel="stylesheet" />
-
-      <div className="flex">
-        <div className="p-6 bg-white rounded-lg shadow-md">
-          <h2 className="text-lg font-semibold pb-4">New league</h2>
-          <div className="flex">
-            <div className="pr-4">
-              <label htmlFor="price" className="block text-sm font-medium leading-5 text-gray-700">
-                Price
-              </label>
-              <div className="relative mt-1 rounded-md shadow-sm">
-                <input
-                  id="price"
-                  className="block w-full pr-12 form-input pl-7 sm:text-sm sm:leading-5"
-                  placeholder="0.00"
-                />
-              </div>
-            </div>
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium leading-5 text-gray-700">
-                Name
-              </label>
-              <div className="relative mt-1 rounded-md shadow-sm">
-                <input
-                  id="name"
-                  className="block w-full pr-12 form-input pl-7 sm:text-sm sm:leading-5"
-                  placeholder="0.00"
-                />
-              </div>
-            </div>
-          </div>
-          <input
-            type="text"
-            placeholder="name"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-          />
-          <input
+    <div>
+      <div className="p-6">
+        <h2 className="pb-4 text-lg font-semibold">Search for Leagues</h2>
+        <div className="flex">
+          <Input
             type="number"
-            placeholder="price"
-            value={price || ''}
-            onChange={(event) => setPrice(parseFloat(event.target.value))}
-          />
-          <input
-            type="text"
-            placeholder="latitude,longitude"
-            value={latLongInput}
-            onChange={(event) => setLatLongInput(event.target.value)}
-          />
-          <button onClick={submitCoordinates}>submit</button>
-        </div>
-        <div>
-          <h2>Search for leagues</h2>
-          <input
-            type="text"
-            placeholder="latitude,longitude"
-            value={searchLatLong}
-            onChange={(event) => setSearchLatLong(event.target.value)}
-          />
-          <input
-            type="number"
-            placeholder="Search radius in miles"
+            className="pr-4"
             value={searchRadius || ''}
             onChange={(event) => setSearchRadius(parseFloat(event.target.value))}
+            label="Mile radius"
           />
-          <button onClick={search}>search</button>
+          <Input
+            type="number"
+            value={price || ''}
+            onChange={(event) => setPrice(parseFloat(event.target.value))}
+            label="Max Price"
+            step="100"
+          />
+        </div>
+        <Input
+          type="text"
+          value={latLongInput}
+          onChange={(event) => setLatLongInput(event.target.value)}
+          placeholder="latitude, longitude"
+          label="Latitude, Longitude"
+          className="pt-4"
+        />
+      </div>
+      <div className="px-4 py-3 overflow-hidden text-right bg-indigo-100">
+        <span className="inline-flex rounded-md shadow-sm">
+          <button
+            type="submit"
+            onClick={search}
+            className="px-4 py-2 text-sm font-medium leading-5 text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-500 focus:outline-none focus:bg-indigo-500"
+            disabled={!searchRadius || !price || !validLatLongPair}
+          >
+            Search
+          </button>
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function LeagueList({ leagues }: { leagues: Array<League> }) {
+  return (
+    <div className="h-64 overflow-scroll">
+      {leagues.map(({ id, name, price, coordinates: { latitude, longitude } }) => {
+        return (
+          <div className="px-6 py-2" key={id}>
+            <div className="flex justify-between ">
+              <div className="font-bold text-gray-800 capitalize">{name}</div>
+              <div className="text-sm text-gray-700">${Intl.NumberFormat().format(price)}</div>
+            </div>
+            <div className="text-xs text-gray-600">
+              {latitude.toFixed(5)}, {longitude.toFixed(5)}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function App() {
+  const [refreshLeagueList, setRefreshLeagueList] = useState<boolean>(true);
+  const [leagues, setLeagues] = useState<Array<League>>([]);
+  const [filteredLeagueIds, setFilteredLeagueIds] = useState<Array<string>>([]);
+
+  useEffect(() => {
+    if (refreshLeagueList) {
+      GeoFirestore.collection('leagues')
+        .get()
+        .then((querySnapshot) => {
+          const fetchedLeagues: Array<League> = [];
+          querySnapshot.forEach((doc) => {
+            const { name, price, coordinates } = doc.data();
+            fetchedLeagues.push({ id: doc.id, name, price, coordinates });
+          });
+          setLeagues(fetchedLeagues);
+          setRefreshLeagueList(false);
+        });
+    }
+  }, [refreshLeagueList]);
+
+  return (
+    <div className="p-6 App">
+      <h1 className="text-2xl font-bold text-indigo-500">League Manager</h1>
+      <div className="flex">
+        <div className="overflow-hidden bg-white rounded-lg shadow-md m-3">
+          <NewLeagueBuilder refreshLeagueList={() => setRefreshLeagueList(true)} />
+          <LeagueList leagues={leagues} />
+        </div>
+        <div className="bg-white rounded-lg shadow-md m-3">
+          <SearchForLeagues setFilteredLeagueIds={setFilteredLeagueIds} />
+          <LeagueList leagues={leagues.filter(({ id }) => filteredLeagueIds.includes(id))} />
         </div>
         {/* <pre style={{ textAlign: 'left' }}>{JSON.stringify(leagues, null, 2)}</pre> */}
       </div>
