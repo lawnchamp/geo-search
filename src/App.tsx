@@ -73,7 +73,7 @@ function NewLeagueBuilder({ refreshLeagueList }) {
   return (
     <div>
       <div className="p-6">
-        <h2 className="pb-4 text-lg font-semibold">Add New League</h2>
+        <h2 className="pb-4 text-lg font-bold text-indigo-700">Add New League</h2>
         <div className="flex">
           <Input
             type="text"
@@ -153,7 +153,7 @@ function SearchForLeagues({ setFilteredLeagueIds }) {
   return (
     <div>
       <div className="p-6">
-        <h2 className="pb-4 text-lg font-semibold">Search for Leagues</h2>
+        <h2 className="pb-4 text-lg font-bold text-indigo-700">Search for Leagues</h2>
         <div className="flex">
           <Input
             type="number"
@@ -195,14 +195,17 @@ function SearchForLeagues({ setFilteredLeagueIds }) {
   );
 }
 
-function LeagueList({ leagues }: { leagues: Array<League> }) {
+function LeagueList({ leagues, title }: { leagues: Array<League>; title: string }) {
+  if (leagues.length == 0) return <div></div>;
+
   return (
-    <div className="h-64 overflow-scroll">
+    <div>
+      <h2 className="p-6 pb-4 text-lg font-bold text-indigo-700">{title}</h2>
       {leagues.map(({ id, name, price, coordinates: { latitude, longitude } }) => {
         return (
-          <div className="px-6 py-2" key={id}>
+          <div className="px-6 py-3" key={id}>
             <div className="flex justify-between ">
-              <div className="font-bold text-gray-800 capitalize">{name}</div>
+              <div className="font-semibold text-gray-700 capitalize">{name}</div>
               <div className="text-sm text-gray-700">${Intl.NumberFormat().format(price)}</div>
             </div>
             <div className="text-xs text-gray-600">
@@ -237,16 +240,19 @@ function App() {
   }, [refreshLeagueList]);
 
   return (
-    <div className="p-6 App">
-      <h1 className="text-2xl font-bold text-indigo-500">League Manager</h1>
-      <div className="flex">
-        <div className="overflow-hidden bg-white rounded-lg shadow-md m-3">
+    <div className="App">
+      <h1 className="bg-gray-700 p-4 text-3xl font-bold text-white">League Manager</h1>
+      <div className="flex-wrap sm:flex">
+        <div className="bg-white rounded-lg shadow-md m-3">
           <NewLeagueBuilder refreshLeagueList={() => setRefreshLeagueList(true)} />
-          <LeagueList leagues={leagues} />
+          <LeagueList title="All Leagues" leagues={leagues} />
         </div>
         <div className="bg-white rounded-lg shadow-md m-3">
           <SearchForLeagues setFilteredLeagueIds={setFilteredLeagueIds} />
-          <LeagueList leagues={leagues.filter(({ id }) => filteredLeagueIds.includes(id))} />
+          <LeagueList
+            title="Search Results"
+            leagues={leagues.filter(({ id }) => filteredLeagueIds.includes(id))}
+          />
         </div>
         {/* <pre style={{ textAlign: 'left' }}>{JSON.stringify(leagues, null, 2)}</pre> */}
       </div>
