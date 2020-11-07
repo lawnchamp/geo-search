@@ -32,15 +32,13 @@ function App() {
       <h1 className="px-8 py-4 text-3xl font-bold text-gray-700 bg-white shadow-md">
         League Manager
       </h1>
-      <div className="max-w-6xl mx-auto">
-        <div className="flex-wrap justify-center sm:flex">
-          <div className="m-3 bg-white rounded-lg shadow-md">
-            <NewLeagueCreator refreshLeagueList={() => setRefreshLeagueList(true)} />
-            <LeagueList title="All Leagues" leagues={allLeagues} />
-          </div>
-          <div className="m-3 bg-white rounded-lg shadow-md">
-            <LeagueFinder allLeagues={allLeagues} />
-          </div>
+      <div className="flex-wrap justify-center sm:flex">
+        <div className="m-3 bg-white rounded-lg shadow-md">
+          <NewLeagueCreator refreshLeagueList={() => setRefreshLeagueList(true)} />
+          <LeagueList title="All Leagues" leagues={allLeagues} />
+        </div>
+        <div className="m-3 bg-white rounded-lg shadow-md">
+          <LeagueFinder allLeagues={allLeagues} />
         </div>
       </div>
     </div>
