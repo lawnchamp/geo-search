@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import firebase from 'firebase/app';
 import { GeoFirestore } from '../index';
 
 import Input from '../atomic_ui/Input';
-import Button from '../atomic_ui/Button';
 
 import { LeagueIdToDistanceMapping } from './LeagueFinder';
 
@@ -30,24 +29,33 @@ export default function SearchForLeagues({
     return searchCenterLatLong.split(',').map(parseFloat);
   }
 
-  function search() {
-    if (!searchRadius || !searchCenterLatLong || !maxPriceInput) return;
-    const [latitude, longitude] = parsedLatitudeLongitude();
+  useEffect(() => {
+    let mounted = true;
 
-    const query = GeoFirestore.collection('leagues').near({
-      center: new firebase.firestore.GeoPoint(latitude, longitude),
-      radius: searchRadius,
-    });
+    if (validLatLongPair && searchRadius > 0 && maxPriceInput > 0) {
+      const [latitude, longitude] = parsedLatitudeLongitude();
 
-    query.get().then((value) => {
-      setLeagueIdToDistanceMapping(
-        value.docs.reduce((idDistanceMapping, { id, distance }) => {
-          idDistanceMapping[id] = distance;
-          return idDistanceMapping;
-        }, {}),
-      );
-    });
-  }
+      const query = GeoFirestore.collection('leagues').near({
+        center: new firebase.firestore.GeoPoint(latitude, longitude),
+        radius: searchRadius,
+      });
+
+      query.get().then((value) => {
+        if (!mounted) return;
+
+        setLeagueIdToDistanceMapping(
+          value.docs.reduce((idDistanceMapping, { id, distance }) => {
+            idDistanceMapping[id] = distance;
+            return idDistanceMapping;
+          }, {}),
+        );
+      });
+    }
+
+    return () => {
+      mounted = false;
+    };
+  }, [searchCenterLatLong, searchRadius, maxPriceInput]);
 
   return (
     <div>
@@ -80,17 +88,6 @@ export default function SearchForLeagues({
           id="search-lat-long"
           className="pt-4"
         />
-      </div>
-      <div className="px-4 pb-4 text-right border-b-2">
-        <span className="inline-flex rounded-md shadow-sm">
-          <Button
-            type="submit"
-            onClick={search}
-            disabled={!searchRadius || !maxPriceInput || !validLatLongPair}
-          >
-            Search
-          </Button>
-        </span>
       </div>
     </div>
   );
