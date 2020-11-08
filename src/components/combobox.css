@@ -1,0 +1,23 @@
+[data-reach-combobox-popover] {
+  border: none !important;
+}
+[data-reach-combobox-option][data-highlighted] {
+  background-color: #edf2f7;
+}
+[data-reach-combobox-option]:hover {
+  background-color: #edf2f7;
+}
+[data-reach-combobox-option] {
+  padding: 1rem 0.75rem;
+}
+
+/* the string portions that match what the user has typed */
+[data-user-value] {
+  font-weight: 600;
+  color: #4c51bf;
+}
+/* the string portions are suggested */
+[data-suggested-value] {
+  font-weight: 400;
+  color: #4a5568;
+}

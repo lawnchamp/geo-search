@@ -1,14 +1,73 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import axios from 'axios';
 import { GeoFirestore } from '../index';
 import firebase from 'firebase/app';
 
 import Input from '../atomic_ui/Input';
 import Button from '../atomic_ui/Button';
 
+import {
+  Combobox,
+  ComboboxInput,
+  ComboboxPopover,
+  ComboboxList,
+  ComboboxOption,
+} from '@reach/combobox';
+import '@reach/combobox/styles.css';
+import './combobox.css';
+
+type FormattedSearchResultString = string;
+
+interface LocationSearchResult {
+  formatted: FormattedSearchResultString;
+  geometry: {
+    lat: number;
+    lng: number;
+  };
+}
+
+const loadingSingleton: LocationSearchResult = {
+  formatted: 'Searching...',
+  geometry: {
+    lat: 0,
+    lng: 0,
+  },
+};
+
 export default function NewLeagueCreator({ refreshLeagueList }) {
-  const [name, setName] = useState<string>('');
+  const [leagueName, setLeagueName] = useState<string>('');
   const [price, setPrice] = useState<number>(0);
   const [latLongInput, setLatLongInput] = useState<string>('');
+  const [searchPlaceName, setSearchPlaceName] = useState<string>('');
+  const [searchPlaceResults, setSearchPlaceResults] = useState<Array<LocationSearchResult>>([
+    loadingSingleton,
+  ]);
+
+  useEffect(() => {
+    if (!searchPlaceName) return;
+
+    const { token, cancel } = axios.CancelToken.source();
+
+    axios
+      .get(
+        `https://api.opencagedata.com/geocode/v1/json?q=${encodeURI(
+          searchPlaceName,
+        )}&key=dd0f38b3569a4c6fa0109793ac6ccb8d&language=en&pretty=1`,
+        { cancelToken: token },
+      )
+      .then(({ data }) => {
+        setSearchPlaceResults(
+          data.results.map(({ formatted, geometry }) => {
+            return {
+              formatted,
+              geometry,
+            };
+          }),
+        );
+      });
+
+    return cancel;
+  }, [searchPlaceName]);
 
   const validLatLongPair = useMemo(
     () =>
@@ -19,19 +78,31 @@ export default function NewLeagueCreator({ refreshLeagueList }) {
     [latLongInput],
   );
 
+  function onSearchOptionSelected(searchResult: FormattedSearchResultString) {
+    const selectedOption = searchPlaceResults.find(({ formatted }) => formatted === searchResult);
+    if (!selectedOption) return;
+
+    const selectedLatLongString = [selectedOption.geometry.lat, selectedOption.geometry.lng].join(
+      ',',
+    );
+    setLatLongInput(selectedLatLongString);
+    setSearchPlaceName(searchResult);
+  }
+
   function submitCoordinates() {
     const [latitude, longitude] = latLongInput.split(',').map(parseFloat);
+
     GeoFirestore.collection('leagues')
       .add({
-        name,
+        name: leagueName,
         price,
         coordinates: new firebase.firestore.GeoPoint(latitude, longitude),
       })
       .then(() => {
-        setName('');
+        setLeagueName('');
         setPrice(0);
         setLatLongInput('');
-
+        setSearchPlaceName('');
         refreshLeagueList();
       });
   }
@@ -43,9 +114,9 @@ export default function NewLeagueCreator({ refreshLeagueList }) {
         <div className="flex">
           <Input
             type="text"
-            className="pr-4"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
+            className="w-full pr-4"
+            value={leagueName}
+            onChange={(event) => setLeagueName(event.target.value)}
             label="Name"
             id="new-league-name"
           />
@@ -56,25 +127,67 @@ export default function NewLeagueCreator({ refreshLeagueList }) {
             label="Price"
             step="100"
             id="new-league-price"
+            className="w-full"
           />
         </div>
-        <Input
-          type="text"
-          value={latLongInput}
-          onChange={(event) => setLatLongInput(event.target.value)}
-          placeholder="39.15001, -77.18335"
-          label="Latitude, Longitude"
-          id="new-league-lat-long"
-          className="pt-4"
-        />
+        <div className="w-full pt-6 text-xs font-bold tracking-wide text-center text-indigo-600 uppercase">
+          find location
+        </div>
+        <div className="flex flex-col items-center pt-4">
+          <Input
+            type="text"
+            value={latLongInput}
+            onChange={(event) => {
+              setLatLongInput(event.target.value);
+              setSearchPlaceName('');
+            }}
+            placeholder="39.15001, -77.18335"
+            label="Latitude, Longitude"
+            id="new-league-lat-long"
+            className="w-full"
+          />
+          <div className="inline-block px-4 pt-6 text-xs font-bold tracking-wide text-indigo-600 uppercase">
+            or
+          </div>
+          <div className="w-full">
+            <div className="mb-1 text-xs font-bold tracking-wide text-gray-600 uppercase">
+              Search by name
+            </div>
+            <Combobox aria-label="locations" onSelect={onSearchOptionSelected}>
+              <ComboboxInput
+                className="w-full pr-12 form-input pl-7 sm:text-sm sm:leading-5"
+                onChange={(event) => setSearchPlaceName(event.target.value)}
+                placeholder="Baltimore, Maryland"
+                value={searchPlaceName}
+              />
+              {searchPlaceResults && (
+                <ComboboxPopover className="pt-2 border border-white">
+                  {searchPlaceResults.length > 0 ? (
+                    <ComboboxList className="overflow-hidden bg-white border border-gray-400 rounded-md shadow-lg">
+                      {searchPlaceResults.map(({ formatted, geometry }) => (
+                        <ComboboxOption
+                          className="px-4 py-4"
+                          key={geometry.lat + geometry.lng}
+                          value={formatted}
+                        />
+                      ))}
+                    </ComboboxList>
+                  ) : (
+                    <span style={{ display: 'block', margin: 8 }}>No results found</span>
+                  )}
+                </ComboboxPopover>
+              )}
+            </Combobox>
+          </div>
+        </div>
       </div>
-      <div className="px-4 pb-4 text-right border-b-2">
+      <div className="px-6 pb-4 text-right border-b-2">
         <span className="inline-flex rounded-md shadow-sm">
           <Button
             type="submit"
             onClick={submitCoordinates}
             className="px-4 py-2 text-sm font-medium leading-5 text-white bg-indigo-600 rounded-md hover:bg-indigo-500 focus:outline-none focus:bg-indigo-500"
-            disabled={!name || !price || !validLatLongPair}
+            disabled={!leagueName || !price || !validLatLongPair}
           >
             Add
           </Button>
