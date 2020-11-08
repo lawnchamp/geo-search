@@ -15,7 +15,7 @@ interface Props {
 function validLatLongPair(coordinates: Array<number>) {
   return (
     coordinates.length === 2 &&
-    coordinates.every((coordinate) => coordinate <= 90 && coordinate <= -90)
+    coordinates.every((coordinate) => coordinate <= 90 && coordinate >= -90)
   );
 }
 
