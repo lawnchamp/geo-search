@@ -12,6 +12,13 @@ interface Props {
   setLeagueIdToDistanceMapping: (mapping: LeagueIdToDistanceMapping) => void;
 }
 
+function validLatLongPair(coordinates: Array<number>) {
+  return (
+    coordinates.length === 2 &&
+    coordinates.every((coordinate) => coordinate <= 90 && coordinate <= -90)
+  );
+}
+
 export default function SearchForLeagues({
   setLeagueIdToDistanceMapping,
   maxPriceInput,
@@ -20,21 +27,12 @@ export default function SearchForLeagues({
   const [searchCenterLatLong, setSearchCenterLatLong] = useState<string>('');
   const [searchRadius, setSearchRadius] = useState<number>(0);
 
-  const validLatLongPair = searchCenterLatLong
-    .split(',')
-    .map(parseFloat)
-    .every((coordinate) => coordinate <= 90 || coordinate <= -90);
-
-  function parsedLatitudeLongitude() {
-    return searchCenterLatLong.split(',').map(parseFloat);
-  }
-
   useEffect(() => {
     let mounted = true;
 
-    if (validLatLongPair && searchRadius > 0 && maxPriceInput > 0) {
-      const [latitude, longitude] = parsedLatitudeLongitude();
+    const [latitude, longitude] = searchCenterLatLong.split(',').map(parseFloat);
 
+    if (validLatLongPair([latitude, longitude]) && searchRadius > 0 && maxPriceInput > 0) {
       const query = GeoFirestore.collection('leagues').near({
         center: new firebase.firestore.GeoPoint(latitude, longitude),
         radius: searchRadius,
@@ -55,7 +53,7 @@ export default function SearchForLeagues({
     return () => {
       mounted = false;
     };
-  }, [searchCenterLatLong, searchRadius, maxPriceInput]);
+  }, [searchCenterLatLong, searchRadius, maxPriceInput, setLeagueIdToDistanceMapping]);
 
   return (
     <div>
