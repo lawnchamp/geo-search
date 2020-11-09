@@ -1,73 +1,20 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import axios from 'axios';
 import { GeoFirestore } from '../index';
 import firebase from 'firebase/app';
 
 import Input from '../atomic_ui/Input';
 import Button from '../atomic_ui/Button';
+import LocationSearchInput from './LocationSearchInput';
 
-import {
-  Combobox,
-  ComboboxInput,
-  ComboboxPopover,
-  ComboboxList,
-  ComboboxOption,
-} from '@reach/combobox';
-import '@reach/combobox/styles.css';
-import './combobox.css';
-
-type FormattedSearchResultString = string;
-
-interface LocationSearchResult {
-  formatted: FormattedSearchResultString;
-  geometry: {
-    lat: number;
-    lng: number;
-  };
+interface Props {
+  refreshLeagueList: () => void;
 }
 
-const loadingSingleton: LocationSearchResult = {
-  formatted: 'Searching...',
-  geometry: {
-    lat: 0,
-    lng: 0,
-  },
-};
-
-export default function NewLeagueCreator({ refreshLeagueList }) {
+export default function NewLeagueCreator({ refreshLeagueList }: Props) {
   const [leagueName, setLeagueName] = useState<string>('');
   const [price, setPrice] = useState<number>(0);
   const [latLongInput, setLatLongInput] = useState<string>('');
   const [searchPlaceName, setSearchPlaceName] = useState<string>('');
-  const [searchPlaceResults, setSearchPlaceResults] = useState<Array<LocationSearchResult>>([
-    loadingSingleton,
-  ]);
-
-  useEffect(() => {
-    if (!searchPlaceName) return;
-
-    const { token, cancel } = axios.CancelToken.source();
-
-    axios
-      .get(
-        `https://api.opencagedata.com/geocode/v1/json?q=${encodeURI(
-          searchPlaceName,
-        )}&key=dd0f38b3569a4c6fa0109793ac6ccb8d&language=en&pretty=1`,
-        { cancelToken: token },
-      )
-      .then(({ data }) => {
-        setSearchPlaceResults(
-          data.results.map(({ formatted, geometry }) => {
-            return {
-              formatted,
-              geometry,
-            };
-          }),
-        );
-      });
-
-    return cancel;
-  }, [searchPlaceName]);
 
   const validLatLongPair = useMemo(
     () =>
@@ -77,17 +24,6 @@ export default function NewLeagueCreator({ refreshLeagueList }) {
         .every((coordinate) => coordinate <= 90 || coordinate <= -90),
     [latLongInput],
   );
-
-  function onSearchOptionSelected(searchResult: FormattedSearchResultString) {
-    const selectedOption = searchPlaceResults.find(({ formatted }) => formatted === searchResult);
-    if (!selectedOption) return;
-
-    const selectedLatLongString = [selectedOption.geometry.lat, selectedOption.geometry.lng].join(
-      ',',
-    );
-    setLatLongInput(selectedLatLongString);
-    setSearchPlaceName(searchResult);
-  }
 
   function submitCoordinates() {
     const [latitude, longitude] = latLongInput.split(',').map(parseFloat);
@@ -105,6 +41,18 @@ export default function NewLeagueCreator({ refreshLeagueList }) {
         setSearchPlaceName('');
         refreshLeagueList();
       });
+  }
+
+  function onSearchLocationLatLngSelected(
+    selectedLocationName: string,
+    locationCoordinatesLatLngString: string,
+  ) {
+    setLatLongInput(locationCoordinatesLatLngString);
+    setSearchPlaceName(selectedLocationName);
+  }
+
+  function onSearchInputFieldChange(event: React.FormEvent<HTMLInputElement>) {
+    setSearchPlaceName(event.currentTarget.value);
   }
 
   return (
@@ -153,31 +101,11 @@ export default function NewLeagueCreator({ refreshLeagueList }) {
             <div className="mb-1 text-xs font-bold tracking-wide text-gray-600 uppercase">
               Search by name
             </div>
-            <Combobox aria-label="locations" onSelect={onSearchOptionSelected}>
-              <ComboboxInput
-                className="w-full pr-12 form-input pl-7 sm:text-sm sm:leading-5"
-                onChange={(event) => setSearchPlaceName(event.target.value)}
-                placeholder="Baltimore, Maryland"
-                value={searchPlaceName}
-              />
-              {searchPlaceResults && (
-                <ComboboxPopover className="pt-2 border border-white">
-                  {searchPlaceResults.length > 0 ? (
-                    <ComboboxList className="overflow-hidden bg-white border border-gray-400 rounded-md shadow-lg">
-                      {searchPlaceResults.map(({ formatted, geometry }) => (
-                        <ComboboxOption
-                          className="px-4 py-4"
-                          key={geometry.lat + geometry.lng}
-                          value={formatted}
-                        />
-                      ))}
-                    </ComboboxList>
-                  ) : (
-                    <span style={{ display: 'block', margin: 8 }}>No results found</span>
-                  )}
-                </ComboboxPopover>
-              )}
-            </Combobox>
+            <LocationSearchInput
+              searchPlaceName={searchPlaceName}
+              onSearchInputFieldChange={onSearchInputFieldChange}
+              onSearchLocationLatLngSelected={onSearchLocationLatLngSelected}
+            />
           </div>
         </div>
       </div>
