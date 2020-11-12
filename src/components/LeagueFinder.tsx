@@ -28,7 +28,7 @@ export default function LeagueFinder({ allLeagues }: Props) {
     let leaguesInPriceRange: Array<League> = [];
 
     const sortedLeaguesInSearchRadius: Array<League> = allLeagues
-      .filter((league) => leagueIdToDistanceMapping[league.id])
+      .filter((league) => leagueIdToDistanceMapping[league.id] !== undefined)
       .sort((a, b) => a.price - b.price);
 
     for (const league of sortedLeaguesInSearchRadius) {
